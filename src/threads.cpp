@@ -3,55 +3,50 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+#include "worker.h"
 
-extern "C" int LIB_check_result(lua_State *Lua)
+#define DEBUG 1
+#define READY_DEBUG 0
+
+extern "C" int check_result(lua_State *Lua)
 {
-    void *ready_pointer = lua_touserdata(Lua, 1);
-    bool* casted_ready_pointer = (bool*)ready_pointer;
-    lua_pushboolean(Lua, *casted_ready_pointer);
+    decltype(auto) worker = (Worker*)lua_touserdata(Lua, 1);
+    if (worker == NULL) {
+        throw std::runtime_error("ready_pointer is NULL");
+    }
+    lua_pushboolean(Lua, worker->get_ready());
     return 1;
 }
 
-extern "C" int LIB_get_result(lua_State *Lua)
+extern "C" int get_result(lua_State *Lua)
 {
-    void *thread_pointer = lua_touserdata(Lua, 1);
-    std::thread *casted_thread_pointer = (std::thread *)thread_pointer;
-    casted_thread_pointer->join();
-    //delete casted_thread_pointer;
-    // lua_pushboolean(Lua, 1);
+    decltype(auto) worker = (Worker*)lua_touserdata(Lua, 1);
+    if (worker == NULL) {
+        throw std::runtime_error("ready_pointer is NULL");
+    }
+    lua_pushinteger(Lua, worker->get_result());
+    delete worker;
     return 1;
 }
 
 extern "C" int LIB_async(lua_State *Lua)
 {
-    std::cout << "LIB_async" << std::endl;
+    std::cout << "[LIB_async function] Start" << std::endl;
+    lua_State* newLua = luaL_newstate();
+    lua_xmove(Lua, newLua, 2);
+    decltype(auto) worker = new Worker(newLua);
+
     lua_newtable(Lua);
-    lua_pushcfunction(Lua, &LIB_get_result);
+    lua_pushcfunction(Lua, &get_result);
     lua_setfield(Lua, -2, "get");
-    lua_pushcfunction(Lua, &LIB_check_result);
+    lua_pushcfunction(Lua, &check_result);
     lua_setfield(Lua, -2, "check");
-    bool* ready = new bool(false);
-    lua_pushlightuserdata(Lua, ready);
-    lua_setfield(Lua, -2, "ready_pointer");
-    std::thread *thread_handler = new std::thread(
-        [&Lua = Lua, &ready]() -> int {
-            std::cout << "[LIB Thread function]" << std::endl;
-            lua_call(Lua, 1, 1);
-            std::cout << "[LIB Thread function] ready = true" << std::endl;
-            *ready = true;
-            std::cout << "[LIB Thread function] retrun" << std::endl;
-            return 1; 
-        }
-    );
-    lua_pushlightuserdata(Lua, (void *)thread_handler);
-    lua_setfield(Lua, -2, "thread_pointer");
+    lua_pushlightuserdata(Lua, worker);
+    lua_setfield(Lua, -2, "worker");
 
+    worker->start();
+    std::cout << "[LIB_async function] End" << std::endl;
     return 1;
-}
-
-void init(lua_State *Lua)
-{
-    lua_register(Lua, "LIB_async", LIB_async);
 }
 
 extern "C" int luaopen_libthreads(lua_State *Lua)

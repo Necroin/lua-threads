@@ -1,38 +1,26 @@
 
-local threads = require 'threads'
-local fiber = require 'fiber'
-
-local promise = threads.execute(
-    function (arguments)
-        ...
-    end,
-    {}
-)
-
-while promise:ready() == false do
-    fiber.yeld()
-end
-
-local result = promise:get()
-
-result
-
-
 local threads = require 'src/threads'
 
-local result = threads.async(
+function sleep(a)
+    local sec = tonumber(os.clock() + a)
+    while (os.clock() < sec) do
+    end
+end
+
+local future = threads.async(
     function (arguments)
-        print("Lua test function")
+        print("[TEST] Lua test function started")
+        sleep(2)
         return 5
     end,
     {}
 )
 
+print("[TEST] Wait ready")
 local counter = 0
-while result:check() == false do
+while future:ready() == false do
     counter = counter + 1
-    --print(counter)
 end
 print(counter)
-print(result:get())
+print(future:get())
 

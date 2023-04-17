@@ -8,13 +8,24 @@
 #define DEBUG 1
 #define READY_DEBUG 0
 
-extern "C" int check_result(lua_State *Lua)
+extern "C" int finish(lua_State *Lua)
 {
     decltype(auto) worker = (Worker*)lua_touserdata(Lua, 1);
     if (worker == NULL) {
         throw std::runtime_error("ready_pointer is NULL");
     }
-    lua_pushboolean(Lua, worker->get_ready());
+    delete worker;
+    lua_pushboolean(Lua, true);
+    return 1;
+}
+
+extern "C" int check_result(lua_State *Lua)
+{
+    decltype(auto) worker = (Worker*)lua_touserdata(Lua, 1);
+    if (worker == NULL) {
+        throw std::runtime_error("worker is NULL");
+    }
+    lua_pushboolean(Lua, worker->is_ready());
     return 1;
 }
 
@@ -22,10 +33,13 @@ extern "C" int get_result(lua_State *Lua)
 {
     decltype(auto) worker = (Worker*)lua_touserdata(Lua, 1);
     if (worker == NULL) {
-        throw std::runtime_error("ready_pointer is NULL");
+        throw std::runtime_error("worker is NULL");
     }
-    lua_pushinteger(Lua, worker->get_result());
-    delete worker;
+    if (worker->is_ready() == false) {
+        lua_pushnil(Lua);
+        return 1;
+    }
+    worker->get_result(Lua);
     return 1;
 }
 
@@ -41,6 +55,8 @@ extern "C" int LIB_async(lua_State *Lua)
     lua_setfield(Lua, -2, "get");
     lua_pushcfunction(Lua, &check_result);
     lua_setfield(Lua, -2, "check");
+    lua_pushcfunction(Lua, &finish);
+    lua_setfield(Lua, -2, "finish");
     lua_pushlightuserdata(Lua, worker);
     lua_setfield(Lua, -2, "worker");
 

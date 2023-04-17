@@ -6,10 +6,9 @@
 
 
 class Worker{
-private:
+public:
     lua_State *Lua;
     bool ready;
-    int result;
     std::thread *thread_handler;
 public:
     Worker(lua_State *Lua):
@@ -19,35 +18,33 @@ public:
     }
 
     ~Worker() {
-        lua_close(Lua);
         delete thread_handler;
+        lua_close(Lua);
     }
 public:
     void start() {
         thread_handler = new std::thread(
-            [&Lua = this->Lua, &ready = this->ready, &result = this->result]() -> int {
+            [&Lua = this->Lua, &ready = this->ready]() {
                 std::cout << "[wORKER Thread function] Start" << std::endl;
+                std::cout << "[wORKER Thread function] Lua top: " << lua_gettop(Lua) << std::endl;
                 std::cout << "[wORKER Thread function] Call" << std::endl;
                 lua_call(Lua, 1, 1);
-                std::cout << "[wORKER Thread function] Get result" << std::endl;
-                result = lua_tointeger(Lua, 1);
-                std::cout << "[wORKER Thread function] Pop result" << std::endl;
-                lua_pop(Lua, 1);
+                std::cout << "[wORKER Thread function] Lua top: " << lua_gettop(Lua) << std::endl;
                 std::cout << "[wORKER Thread function] ready = true" << std::endl;
                 ready = true;
                 std::cout << "[wORKER Thread function] Return" << std::endl;
-                return 0; 
             }
         );
     }
 
-    bool get_ready() {
+    bool is_ready() {
         return ready;
     }
 
-    int get_result() {
-        std::cout << "[LIB get_result function]" << std::endl;
+    void get_result(lua_State *other_Lua) {
+        std::cout << "[LIB get_result function] Start" << std::endl;
         thread_handler->join();
-        return result;
+        lua_xmove(this->Lua, other_Lua, 1);
+        std::cout << "[LIB get_result function] Worker Lua top: " << lua_gettop(Lua) << std::endl;
     }
 };

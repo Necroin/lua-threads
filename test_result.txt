@@ -1,0 +1,6 @@
+[TEST] get result from future, but too early:	nil
+[TEST] wait ready
+[TEST] lua test function started
+[TEST] finish call result:	true
+[TEST] counter value:	17052755
+[TEST] result value:	test success
